@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MOS 6502</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <textarea name="memory" id="memory" cols="60" rows="30"></textarea>
+    <div class="registers">
+      <p class="a"></p>
+      <p class="x"></p>
+      <p class="y"></p>
+      <p class="pc"></p>
+      <p class="sp"></p>
+      <p class="p"></p>
+      <button onclick="step()">STEP</button>
+      <button onclick="runProg()">RUN</button>
+      <button onclick="reset()">RESET</button>
+    </div>
+    <script src="./index.js"></script>
+  </body>
+</html>
