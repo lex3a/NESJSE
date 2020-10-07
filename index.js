@@ -1,37 +1,3 @@
-class CPU {
-  constructor() {
-    this.A = 0;
-    this.X = 0;
-    this.Y = 0;
-    this.SP = 0;
-    this.PC = 0;
-    this.P = 0;
-    this.RAM = new Uint8Array(65536).fill(0);
-  }
-
-  setFlag(value) {
-    if (value & 0x80) {
-      this.P |= 0x80;
-    }
-  }
-
-  read8(address) {
-    return this.RAM[address];
-  }
-
-  read16(address) {
-    return this.RAM[address + 1] | this.RAM[address];
-  }
-
-  step(program) {
-    //clearDislpayMemory(memoryHTML);
-    //displayMemory(memoryHTML, 0, 1024);
-    readOpcode(program[registers.pc]);
-    registers.pc += 1;
-    //displayRegs();
-  }
-}
-
 let ram = new Array(65536).fill(0);
 let registers = {
   a: 0,
@@ -43,6 +9,7 @@ let registers = {
 };
 
 let memoryHTML = document.querySelector("#memory");
+let disasmText = document.querySelector("#disasm");
 let regA = document.querySelector(".a");
 let regX = document.querySelector(".x");
 let regY = document.querySelector(".y");
@@ -111,10 +78,9 @@ function reset() {
   registers.a = 0;
   registers.x = 0;
   registers.y = 0;
-  registers.pc = 0;
+  registers.pc = 0x4020;
   registers.sp = 0xfd;
   registers.p = 48;
-  ram.fill(0);
   displayMemory(memoryHTML, 0, 1024);
   displayRegs();
 }
@@ -223,8 +189,15 @@ $0606    00        BRK
 */
 let prog = "a200a0008a99000248e8c8c010d0f568990002c8c020d0f7";
 let progBytes = hexStringToArr(prog);
-loadBin(progBytes);
+//loadBin(progBytes);
 //loadRom();
+
+function loadFormData() {
+  let formVal = document.forms["myForm"]["data"].value;
+  let data = formVal.split(" ").join("");
+  loadBin(hexStringToArr(data));
+  alert("Data loaded!");
+}
 
 function loadBin(progBytes) {
   let address = 0x4020;
@@ -247,13 +220,32 @@ async function loadRom() {
 }
 
 function runProg(prog) {
-  while (registers.pc < prog.length) {
-    console.log(`PC: ${registers.pc}, a: ${registers.a}`);
-    readOpcode(prog[registers.pc]);
-    registers.pc += 1;
-    displayMemory(memoryHTML, 512, 516);
-    displayRegs();
+  let tick = 0;
+  let cycles = 0;
+  displayMemory(memoryHTML, 0, 1024);
+  while ((readRam16(registers.pc) << 16) | (readRam16(registers.pc + 2) !== 0)) {
+    //displayMemory(memoryHTML, 0, 1024);
+    let opcode = readRam8(registers.pc);
+    let [mnemonic, addrMode, length, cycle] = OPCODES[opcode];
+    let addr = mode[addrMode]();
+    console.log(`Address: $${padFormatString(addr, 4)} 
+    PC: $${padFormatString(registers.pc, 4)}
+    A: $${padFormatString(registers.a)}
+    Y: $${padFormatString(registers.x)}
+    X: $${padFormatString(registers.y)}
+    SP: $${padFormatString(registers.sp)}`);
+    registers.pc += length;
+    cycles += cycle;
+    instruction[mnemonic](addr);
+
+    //displayMemory(memoryHTML, 0, 1024);
+    //displayRegs();
+    let dis = dissasembler(0x4020, 0x4040);
+    disasmText.innerText = dis;
+    tick++;
   }
+  console.log(`Ticks: ${tick}
+  Cycles ${cycles}`);
 }
 
 const getRelativeAddr = (addr) => (readRam8(addr + 1) & 0x80 ? -((readRam8(addr + 1) ^ 0xff) + 1) : readRam8(addr + 1));
@@ -274,7 +266,7 @@ function step() {
   displayRegs();
 
   let dis = dissasembler(0x4020, 0x4040);
-  console.log(dis);
+  disasmText.innerText = dis;
 }
 
 function dissasembler(start, end) {
@@ -603,262 +595,264 @@ function setFlag(flag, value) {
   }
 }
 
+// TODO: Implement unofficial opcodes,
+// because apparently some NES games use them
 const OPCODES = {
   //Decimal OpCode: mnemonic, addressing mode, instruction length, cycles
   0: [MNEMONIC.BRK, MODES.IMPLIED, 1, 7],
   1: [MNEMONIC.ORA, MODES.INDIRECT_X, 2, 6],
-  2: [],
-  3: [],
-  4: [],
+  //2: [],
+  //3: [],
+  //4: [],
   5: [MNEMONIC.ORA, MODES.ZERO_PAGE, 2, 3],
   6: [MNEMONIC.ASL, MODES.ZERO_PAGE, 2, 5],
-  7: [],
+  //7: [],
   8: [MNEMONIC.PHP, MODES.IMPLIED, 1, 2],
   9: [MNEMONIC.ORA, MODES.IMMEDIATE, 2, 2],
   10: [MNEMONIC.ASL, MODES.ACCUMULATOR, 1, 2],
-  11: [],
-  12: [],
+  //11: [],
+  //12: [],
   13: [MNEMONIC.ORA, MODES.ABSOLUTE, 3, 4],
   14: [MNEMONIC.ASL, MODES.ABSOLUTE, 3, 6],
-  15: [],
+  //15: [],
   16: [MNEMONIC.BPL, MODES.RELATIVE, 2, 2],
   17: [MNEMONIC.ORA, MODES.INDIRECT_Y, 2, 5],
-  18: [],
-  19: [],
-  20: [],
+  //18: [],
+  //19: [],
+  //20: [],
   21: [MNEMONIC.ORA, MODES.ZERO_PAGE_X, 2, 4],
   22: [MNEMONIC.ASL, MODES.ZERO_PAGE_X, 2, 6],
-  23: [],
+  //23: [],
   24: [MNEMONIC.CLC, MODES.IMPLIED, 1, 2],
   25: [MNEMONIC.ORA, MODES.ABSOLUTE_Y, 3, 4],
-  26: [],
-  27: [],
-  28: [],
+  //26: [],
+  //27: [],
+  //28: [],
   29: [MNEMONIC.ORA, MODES.ABSOLUTE_X, 3, 4],
   30: [MNEMONIC.ASL, MODES.ABSOLUTE_X, 3, 7],
-  31: [],
+  //31: [],
   32: [MNEMONIC.JSR, MODES.ABSOLUTE, 3, 6],
   33: [MNEMONIC.AND, MODES.INDIRECT_X, 2, 6],
-  34: [],
-  35: [],
+  //34: [],
+  //35: [],
   36: [MNEMONIC.BIT, MODES.ZERO_PAGE, 2, 3],
   37: [MNEMONIC.AND, MODES.ZERO_PAGE, 2, 3],
   38: [MNEMONIC.ROL, MODES.ZERO_PAGE, 2, 5],
-  39: [],
+  ////39: [],
   40: [MNEMONIC.PLP, MODES.IMPLIED, 1, 2],
   41: [MNEMONIC.AND, MODES.IMMEDIATE, 2, 2],
   42: [MNEMONIC.ROL, MODES.ACCUMULATOR, 1, 2],
-  43: [],
+  ////43: [],
   44: [MNEMONIC.BIT, MODES.ABSOLUTE, 3, 4],
   45: [MNEMONIC.AND, MODES.ABSOLUTE, 3, 4],
   46: [MNEMONIC.ROL, MODES.ABSOLUTE, 3, 6],
-  47: [],
+  ////47: [],
   48: [MNEMONIC.BMI, MODES.RELATIVE, 2, 2],
   49: [MNEMONIC.AND, MODES.INDIRECT_Y, 2, 5],
-  50: [],
-  51: [],
-  52: [],
+  ////50: [],
+  ////51: [],
+  ////52: [],
   53: [MNEMONIC.AND, MODES.ZERO_PAGE_X, 2, 4],
   54: [MNEMONIC.ROL, MODES.ZERO_PAGE_X, 2, 6],
-  55: [],
+  ////55: [],
   56: [MNEMONIC.SEC, MODES.IMPLIED, 1, 2],
   57: [MNEMONIC.AND, MODES.ABSOLUTE_Y, 3, 4],
-  58: [],
-  59: [],
-  60: [],
+  //58: [],
+  //59: [],
+  //60: [],
   61: [MNEMONIC.AND, MODES.ABSOLUTE_X, 3, 4],
   62: [MNEMONIC.ROL, MODES.ABSOLUTE_X, 3, 7],
-  63: [],
+  //63: [],
   64: [MNEMONIC.RTI, MODES.IMPLIED, 1, 6],
   65: [MNEMONIC.EOR, MODES.INDIRECT_X, 2, 6],
-  66: [],
-  67: [],
-  68: [],
+  //66: [],
+  //67: [],
+  //68: [],
   69: [MNEMONIC.EOR, MODES.ZERO_PAGE, 2, 3],
   70: [MNEMONIC.LSR, MODES.ZERO_PAGE, 2, 5],
-  71: [],
+  //71: [],
   72: [MNEMONIC.PHA, MODES.IMPLIED, 1, 2],
   73: [MNEMONIC.EOR, MODES.IMMEDIATE, 2, 2],
   74: [MNEMONIC.LSR, MODES.ACCUMULATOR, 1, 2],
-  75: [],
+  //75: [],
   76: [MNEMONIC.JMP, MODES.ABSOLUTE, 3, 3],
   77: [MNEMONIC.EOR, MODES.ABSOLUTE, 3, 4],
   78: [MNEMONIC.LSR, MODES.ABSOLUTE, 3, 6],
-  79: [],
+  //79: [],
   80: [MNEMONIC.BVC, MODES.RELATIVE, 2, 2],
   81: [MNEMONIC.EOR, MODES.INDIRECT_Y, 2, 5],
-  82: [],
-  83: [],
-  84: [],
+  //82: [],
+  //83: [],
+  //84: [],
   85: [MNEMONIC.EOR, MODES.ZERO_PAGE_X, 2, 4],
   86: [MNEMONIC.LSR, MODES.ZERO_PAGE_X, 2, 6],
-  87: [],
+  //87: [],
   88: [MNEMONIC.CLI, MODES.IMPLIED, 1, 2],
   89: [MNEMONIC.EOR, MODES.ABSOLUTE_Y, 3, 4],
-  90: [],
-  91: [],
-  92: [],
+  //90: [],
+  //91: [],
+  //92: [],
   93: [MNEMONIC.EOR, MODES.ABSOLUTE_X, 3, 4],
   94: [MNEMONIC.LSR, MODES.ABSOLUTE_X, 3, 7],
-  95: [],
+  //95: [],
   96: [MNEMONIC.RTS, MODES.IMPLIED, 1, 6],
   97: [MNEMONIC.ADC, MODES.INDIRECT_X, 2, 6],
-  98: [],
-  99: [],
-  100: [],
+  //98: [],
+  //99: [],
+  //100: [],
   101: [MNEMONIC.ADC, MODES.ZERO_PAGE, 2, 3],
   102: [MNEMONIC.ROR, MODES.ZERO_PAGE, 2, 5],
-  103: [],
+  //103: [],
   104: [MNEMONIC.PLA, MODES.IMPLIED, 1, 2],
   105: [MNEMONIC.ADC, MODES.IMMEDIATE, 2, 2],
   106: [MNEMONIC.ROR, MODES.ACCUMULATOR, 1, 2],
-  107: [],
+  //107: [],
   108: [MNEMONIC.JMP, MODES.INDIRECT, 3, 5],
   109: [MNEMONIC.ADC, MODES.ABSOLUTE, 3, 4],
   110: [MNEMONIC.ROR, MODES.ABSOLUTE, 3, 6],
-  111: [],
+  //111: [],
   112: [MNEMONIC.BVS, MODES.RELATIVE, 2, 2],
   113: [MNEMONIC.ADC, MODES.INDIRECT_Y, 2, 5],
-  114: [],
-  115: [],
-  116: [],
+  //114: [],
+  //115: [],
+  //116: [],
   117: [MNEMONIC.ADC, MODES.ZERO_PAGE_X, 2, 4],
   118: [MNEMONIC.ROR, MODES.ZERO_PAGE_X, 2, 6],
-  119: [],
+  //119: [],
   120: [MNEMONIC.SEI, MODES.IMPLIED, 1, 2],
   121: [MNEMONIC.ADC, MODES.ABSOLUTE_Y, 3, 4],
-  122: [],
-  123: [],
-  124: [],
+  //122: [],
+  //123: [],
+  //124: [],
   125: [MNEMONIC.ADC, MODES.ABSOLUTE_X, 3, 4],
   126: [MNEMONIC.ROR, MODES.ABSOLUTE_X, 3, 7],
-  127: [],
-  128: [],
+  //127: [],
+  //128: [],
   129: [MNEMONIC.STA, MODES.INDIRECT_X, 2, 6],
-  130: [],
-  131: [],
+  //130: [],
+  //131: [],
   132: [MNEMONIC.STY, MODES.ZERO_PAGE, 2, 3],
   133: [MNEMONIC.STA, MODES.ZERO_PAGE, 2, 3],
   134: [MNEMONIC.STX, MODES.ZERO_PAGE, 2, 3],
-  135: [],
+  //135: [],
   136: [MNEMONIC.DEY, MODES.IMPLIED, 1, 2],
-  137: [],
+  //137: [],
   138: [MNEMONIC.TXA, MODES.IMPLIED, 1, 2],
-  139: [],
+  //139: [],
   140: [MNEMONIC.STY, MODES.ABSOLUTE, 3, 4],
   141: [MNEMONIC.STA, MODES.ABSOLUTE, 3, 4],
   142: [MNEMONIC.STX, MODES.ABSOLUTE, 3, 4],
-  143: [],
+  //143: [],
   144: [MNEMONIC.BCC, MODES.RELATIVE, 2, 2],
   145: [MNEMONIC.STA, MODES.INDIRECT_Y, 2, 6],
-  146: [],
-  147: [],
+  //146: [],
+  //147: [],
   148: [MNEMONIC.STY, MODES.ZERO_PAGE_X, 2, 4],
   149: [MNEMONIC.STA, MODES.ZERO_PAGE_X, 2, 4],
   150: [MNEMONIC.STX, MODES.ZERO_PAGE_Y, 2, 4],
-  151: [],
+  //151: [],
   152: [MNEMONIC.TYA, MODES.IMPLIED, 1, 2],
   153: [MNEMONIC.STA, MODES.ABSOLUTE_Y, 3, 5],
   154: [MNEMONIC.TXS, MODES.IMPLIED, 1, 2],
-  155: [],
-  156: [],
+  //155: [],
+  //156: [],
   157: [MNEMONIC.STA, MODES.ABSOLUTE_X, 3, 5],
-  158: [],
-  159: [],
+  //158: [],
+  //159: [],
   160: [MNEMONIC.LDY, MODES.IMMEDIATE, 2, 2],
   161: [MNEMONIC.LDA, MODES.INDIRECT_X, 2, 6],
   162: [MNEMONIC.LDX, MODES.IMMEDIATE, 2, 2],
-  163: [],
+  //163: [],
   164: [MNEMONIC.LDY, MODES.ZERO_PAGE, 2, 3],
   165: [MNEMONIC.LDA, MODES.ZERO_PAGE, 2, 3],
   166: [MNEMONIC.LDX, MODES.ZERO_PAGE, 2, 3],
-  167: [],
+  //167: [],
   168: [MNEMONIC.TAY, MODES.IMPLIED, 1, 2],
   169: [MNEMONIC.LDA, MODES.IMMEDIATE, 2, 2],
   170: [MNEMONIC.TAX, MODES.IMPLIED, 1, 2],
-  171: [],
+  //171: [],
   172: [MNEMONIC.LDY, MODES.ABSOLUTE, 3, 4],
   173: [MNEMONIC.LDA, MODES.ABSOLUTE, 3, 4],
   174: [MNEMONIC.LDX, MODES.ABSOLUTE, 3, 4],
-  175: [],
+  //175: [],
   176: [MNEMONIC.BCS, MODES.RELATIVE, 2, 2],
   177: [MNEMONIC.LDA, MODES.INDIRECT_Y, 2, 5],
-  178: [],
-  179: [],
+  //178: [],
+  //179: [],
   180: [MNEMONIC.LDY, MODES.ZERO_PAGE_X, 2, 4],
   181: [MNEMONIC.LDA, MODES.ZERO_PAGE_X, 2, 4],
   182: [MNEMONIC.LDX, MODES.ZERO_PAGE_Y, 2, 4],
-  183: [],
+  //183: [],
   184: [MNEMONIC.CLV, MODES.IMPLIED, 1, 2],
   185: [MNEMONIC.LDA, MODES.ABSOLUTE_Y, 3, 4],
   186: [MNEMONIC.TSX, MODES.IMPLIED, 1, 2],
-  187: [],
+  //187: [],
   188: [MNEMONIC.LDY, MODES.ABSOLUTE_X, 3, 4],
   189: [MNEMONIC.LDA, MODES.ABSOLUTE_X, 3, 4],
   190: [MNEMONIC.LDX, MODES.ABSOLUTE_Y, 3, 4],
-  191: [],
+  //191: [],
   192: [MNEMONIC.CPY, MODES.IMMEDIATE, 2, 2],
   193: [MNEMONIC.CMP, MODES.INDIRECT_X, 2, 6],
-  194: [],
-  195: [],
+  //194: [],
+  //195: [],
   196: [MNEMONIC.CPY, MODES.ZERO_PAGE, 2, 3],
   197: [MNEMONIC.CMP, MODES.ZERO_PAGE, 2, 3],
   198: [MNEMONIC.DEC, MODES.ZERO_PAGE, 2, 5],
-  199: [],
+  //199: [],
   200: [MNEMONIC.INY, MODES.IMPLIED, 1, 2],
   201: [MNEMONIC.CMP, MODES.IMMEDIATE, 2, 2],
   202: [MNEMONIC.DEX, MODES.IMPLIED, 1, 2],
-  203: [],
+  //203: [],
   204: [MNEMONIC.CPY, MODES.ABSOLUTE, 3, 4],
   205: [MNEMONIC.CMP, MODES.ABSOLUTE, 3, 4],
   206: [MNEMONIC.DEC, MODES.ABSOLUTE, 3, 6],
-  207: [],
+  //207: [],
   208: [MNEMONIC.BNE, MODES.RELATIVE, 2, 2],
   209: [MNEMONIC.CMP, MODES.INDIRECT_Y, 2, 5],
-  210: [],
-  211: [],
-  212: [],
+  //210: [],
+  //211: [],
+  //212: [],
   213: [MNEMONIC.CMP, MODES.ZERO_PAGE_X, 2, 4],
   214: [MNEMONIC.DEC, MODES.ZERO_PAGE_X, 2, 6],
-  215: [],
+  //215: [],
   216: [MNEMONIC.CLD, MODES.IMPLIED, 1, 2],
   217: [MNEMONIC.CMP, MODES.ABSOLUTE_Y, 3, 4],
-  218: [],
-  219: [],
-  220: [],
+  //218: [],
+  //219: [],
+  //220: [],
   221: [MNEMONIC.CMP, MODES.ABSOLUTE_X, 3, 4],
   222: [MNEMONIC.DEC, MODES.ABSOLUTE_X, 3, 7],
-  223: [],
+  //223: [],
   224: [MNEMONIC.CPX, MODES.IMMEDIATE, 2, 2],
   225: [MNEMONIC.SBC, MODES.INDIRECT_X, 2, 6],
-  226: [],
-  227: [],
+  //226: [],
+  //227: [],
   228: [MNEMONIC.CPX, MODES.ZERO_PAGE, 2, 3],
   229: [MNEMONIC.SBC, MODES.ZERO_PAGE, 2, 3],
   230: [MNEMONIC.INC, MODES.ZERO_PAGE, 2, 5],
-  231: [],
+  //231: [],
   232: [MNEMONIC.INX, MODES.IMPLIED, 1, 2],
   233: [MNEMONIC.SBC, MODES.IMMEDIATE, 2, 2],
   234: [MNEMONIC.NOP, MODES.IMPLIED, 1, 2],
-  235: [],
+  //235: [],
   236: [MNEMONIC.CPX, MODES.ABSOLUTE, 3, 4],
   237: [MNEMONIC.SBC, MODES.ABSOLUTE, 3, 4],
   238: [MNEMONIC.INC, MODES.ABSOLUTE, 3, 6],
-  239: [],
+  //239: [],
   240: [MNEMONIC.BEQ, MODES.RELATIVE, 2, 2],
   241: [MNEMONIC.SBC, MODES.INDIRECT_Y, 2, 5],
-  242: [],
-  243: [],
-  244: [],
+  //242: [],
+  //243: [],
+  //244: [],
   245: [MNEMONIC.SBC, MODES.ZERO_PAGE_X, 2, 4],
   246: [MNEMONIC.INC, MODES.ZERO_PAGE_X, 2, 6],
-  247: [],
+  //247: [],
   248: [MNEMONIC.SED, MODES.IMPLIED, 1, 2],
   249: [MNEMONIC.SBC, MODES.ABSOLUTE_Y, 3, 4],
-  250: [],
-  251: [],
-  252: [],
+  //250: [],
+  //251: [],
+  //252: [],
   253: [MNEMONIC.SBC, MODES.ABSOLUTE_X, 3, 4],
   254: [MNEMONIC.INC, MODES.ABSOLUTE_X, 3, 7],
-  255: [],
+  //255: [],
 };

@@ -5,20 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MOS 6502</title>
     <link rel="stylesheet" href="style.css" />
+    <script defer src="./index.js"></script>
   </head>
   <body>
-    <textarea name="memory" id="memory" cols="60" rows="30"></textarea>
-    <div class="registers">
-      <p class="a"></p>
-      <p class="x"></p>
-      <p class="y"></p>
-      <p class="pc"></p>
-      <p class="sp"></p>
-      <p class="p"></p>
-      <button onclick="step()">STEP</button>
-      <button onclick="runProg()">RUN</button>
-      <button onclick="reset()">RESET</button>
+    <div class="flex">
+      <div class="registers">
+        <div class="flex">
+          <div class="container__registers">
+            <p class="a"></p>
+            <p class="x"></p>
+            <p class="y"></p>
+            <p class="pc"></p>
+            <p class="sp"></p>
+            <p class="p"></p>
+          </div>
+          <div class="flex__buttons">
+            <button onclick="step()">STEP</button>
+            <button onclick="runProg()">RUN</button>
+            <button onclick="reset()">RESET</button>
+          </div>
+        </div>
+        <code><pre id="disasm"></pre></code>
+      </div>
+      <textarea name="memory" id="memory" cols="60" rows="30"></textarea>
     </div>
-    <script src="./index.js"></script>
+    <form name="myForm" action="/" onsubmit="event.preventDefault(); loadFormData()" method="post">
+      Program: <br />
+      <textarea name="data" id="bin_data"></textarea><br />
+      <input type="submit" value="Submit" />
+    </form>
   </body>
 </html>
