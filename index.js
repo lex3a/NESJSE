@@ -293,9 +293,9 @@ function dissasembler(start, end) {
       case MODES.INDIRECT:
         return `($${addr16})`;
       case MODES.INDIRECT_X:
-        return `$(${addr16},X)`;
+        return `$(${addr8},X)`;
       case MODES.INDIRECT_Y:
-        return `$(${addr16}),Y`;
+        return `$(${addr8}),Y`;
       case MODES.IMMEDIATE:
         return `#$${addr8}`;
       case MODES.RELATIVE:
@@ -377,13 +377,13 @@ const mode = {
   [MODES.IMPLIED]: () => `IMP`,
   [MODES.IMMEDIATE]: () => registers.pc + 1,
   [MODES.ZERO_PAGE]: () => readRam8(registers.pc + 1),
-  [MODES.ZERO_PAGE_X]: () => (readRam8(addr) + registers.x) & 0xff,
-  [MODES.ZERO_PAGE_Y]: () => (readRam8(addr) + registers.y) & 0xff,
+  [MODES.ZERO_PAGE_X]: () => (readRam8(registers.pc) + registers.x) & 0xff,
+  [MODES.ZERO_PAGE_Y]: () => (readRam8(registers.pc) + registers.y) & 0xff,
   [MODES.ABSOLUTE]: () => readRam16(registers.pc + 1),
   [MODES.ABSOLUTE_X]: () => readRam16(registers.pc + 1) + registers.x,
   [MODES.ABSOLUTE_Y]: () => readRam16(registers.pc + 1) + registers.y,
   [MODES.INDIRECT]: () => readRam16(readRam16(registers.pc + 1)),
-  [MODES.INDIRECT_X]: () => readRam16((((registers.pc + 1) << 8) | registers.x) & 0xff),
+  [MODES.INDIRECT_X]: () => readRam16((readRam8(registers.pc + 1) + registers.x) & 0xff),
   [MODES.INDIRECT_Y]: () => readRam16(readRam8(registers.pc + 1)) + registers.y,
   [MODES.RELATIVE]: () => getRelativeAddr(registers.pc),
 };
