@@ -291,7 +291,7 @@ function dissasembler(start, end) {
       case MODES.ZERO_PAGE_Y:
         return `$${addr8},Y`;
       case MODES.INDIRECT:
-        return `$(${addr16})`;
+        return `($${addr16})`;
       case MODES.INDIRECT_X:
         return `$(${addr16},X)`;
       case MODES.INDIRECT_Y:
@@ -382,7 +382,7 @@ const mode = {
   [MODES.ABSOLUTE]: () => readRam16(registers.pc + 1),
   [MODES.ABSOLUTE_X]: () => readRam16(registers.pc + 1) + registers.x,
   [MODES.ABSOLUTE_Y]: () => readRam16(registers.pc + 1) + registers.y,
-  [MODES.INDIRECT]: () => ((registers.pc + 1) << 8) | (registers.pc + 2),
+  [MODES.INDIRECT]: () => readRam16(readRam16(registers.pc + 1)),
   [MODES.INDIRECT_X]: () => readRam16((((registers.pc + 1) << 8) | registers.x) & 0xff),
   [MODES.INDIRECT_Y]: () => readRam16(readRam8(registers.pc + 1)) + registers.y,
   [MODES.RELATIVE]: () => getRelativeAddr(registers.pc),
@@ -478,8 +478,7 @@ const instruction = {
     registers.y === val ? setFlag("Z", true) : setFlag("N", true);
   },
   [MNEMONIC.JMP]: (operand) => {
-    let val = readRam16(operand);
-    registers.pc = val;
+    registers.pc = operand;
   },
   [MNEMONIC.DEC]: (operand) => {
     let val = readRam8(operand);
