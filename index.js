@@ -166,27 +166,6 @@ const MNEMONIC = {
   STY: 55,
 };
 
-/*
-Address  Hexdump   Dissassembly
--------------------------------
-$0600    a9 01     LDA #$01
-$0602    8d 00 02  STA $0200
-$0605    a9 05     LDA #$05
-$0607    8d 01 02  STA $0201
-$060a    a9 08     LDA #$08
-$060c    8d 02 02  STA $0202
-let prog = "a9018d0002a9058d0102a9088d0202";
-*/
-
-/*
-Address  Hexdump   Dissassembly
--------------------------------
-$0600    a2 c0     LDX #$c0
-$0602    aa        TAX 
-$0603    e8        INX 
-$0604    69 c4     ADC #$c4
-$0606    00        BRK 
-*/
 let prog = "a200a0008a99000248e8c8c010d0f568990002c8c020d0f7";
 let progBytes = hexStringToArr(prog);
 //loadBin(progBytes);
@@ -310,26 +289,6 @@ function dissasembler(start, end) {
         return ``;
     }
   };
-
-  // const retMemSyntax =  {
-  //   addr16 = padFormatString((ram[start + 2] << 8) | ram[start + 1], 4),
-  //   addr8 = padFormatString(ram[start + 1]),
-  //   addrRel = padFormatString(ram[start + 1] + start + 2),
-
-  //   [MODES.ABSOLUTE]: () => `$${this.addr16}`,
-  //   [MODES.ABSOLUTE_X]: () => `$${this.addr16},X`,
-  //   [MODES.ABSOLUTE_Y]: () => `$${this.addr16},Y`,
-  //   [MODES.ZERO_PAGE]: () => `$${this.addr8}`,
-  //   [MODES.ZERO_PAGE_X]: () => `$${this.addr8},X`,
-  //   [MODES.ZERO_PAGE_Y]: () => `$${this.addr8},Y`,
-  //   [MODES.INDIRECT]: () => `$(${this.addr16})`,
-  //   [MODES.INDIRECT_X]: () => `$(${this.addr16},X)`,
-  //   [MODES.INDIRECT_Y]: () => `$(${this.addr16}),Y`,
-  //   [MODES.IMMEDIATE]: () => `#$${this.addr8}`,
-  //   [MODES.RELATIVE]: () => `LABEL_$${this.addrRel}`,
-  //   [MODES.ACCUMULATOR]: () => ``,
-  //   [MODES.IMPLIED]: () => ``,
-  // };
 
   let assembly = ``;
 
