@@ -252,6 +252,8 @@ const getRelativeAddr = (addr) => (readRam8(addr + 1) & 0x80 ? -((readRam8(addr 
 
 displayRegs();
 
+let prevInst = 0;
+
 function step() {
   //clearDislpayMemory(memoryHTML);
   displayMemory(memoryHTML, 0, 1024);
@@ -259,6 +261,7 @@ function step() {
   let [mnemonic, addrMode, length, cycle] = OPCODES[opcode];
   let addr = mode[addrMode]();
   console.log(`Address: $${padFormatString(addr, 4)}`);
+  prevInst = registers.pc;
   registers.pc += length;
   instruction[mnemonic](addr);
 
@@ -341,7 +344,8 @@ function dissasembler(start, end) {
     } else {
       hexData = `${padFormatString(ram[start])}       `;
     }
-    //Check opcode existence
+
+    // If opcode does not exists, return data and skip iteration
     if (OPCODES[ram[start]] == 0) {
       assembly += `$${padFormatString(start, 4)}: ${hexData}\n`;
       start++;
@@ -393,12 +397,15 @@ const instruction = {
     let val = readRam8(operand);
     let isCarry = registers.a + val + (registers.p & 0x01);
     let overflow = ~(registers.a ^ val) & (registers.a ^ isCarry) & 0x80;
-    console.log(overflow);
     setFlag("N", isCarry & 0x80);
     setFlag("V", overflow);
     setFlag("Z", operand === 0);
     setFlag("C", isCarry > 255);
     registers.a = isCarry & 0xff;
+  },
+  [MNEMONIC.SBC]: (operand) => {
+    // https://stackoverflow.com/a/29224684/14218041
+    instruction[MNEMONIC.ADC].call(instruction, ~operand);
   },
   [MNEMONIC.AND]: (operand) => {
     let val = readRam8(operand);
@@ -416,7 +423,72 @@ const instruction = {
     setFlag("Z", val === 0);
     setFlag("C", doesNeedCarry);
   },
-  [MNEMONIC.BIT]: () => {},
+  [MNEMONIC.LSR]: (operand) => {
+    let addr = readRam8(operand);
+    let doesNeedCarry = addr & 1 ? true : false;
+    let val = (addr >> 1) & 0xff;
+    //Check memory mode to not accidentaly overwite RAM with a register A vvalue
+    operand === registers.a ? (registers.a = val) : writeRam8(operand, val);
+    setFlag("N", val & 0x80);
+    setFlag("Z", val === 0);
+    setFlag("C", doesNeedCarry);
+  },
+  [MNEMONIC.ROL]: (operand) => {
+    let addr = readRam8(operand);
+    let doesNeedCarry = addr & 128 ? true : false;
+    let val = (addr << 1) & 0xff;
+    val |= registers.p & 1;
+    //Check memory mode to not accidentaly overwite RAM with a register A vvalue
+    operand === registers.a ? (registers.a = val) : writeRam8(operand, val);
+    setFlag("N", val & 0x80);
+    setFlag("Z", val === 0);
+    setFlag("C", doesNeedCarry);
+  },
+  [MNEMONIC.ROR]: (operand) => {
+    let addr = readRam8(operand);
+    let doesNeedCarry = addr & 1 ? true : false;
+    let val = (addr << 1) & 0xff;
+    val |= registers.p & 128;
+    //Check memory mode to not accidentaly overwite RAM with a register A vvalue
+    operand === registers.a ? (registers.a = val) : writeRam8(operand, val);
+    setFlag("N", val & 0x80);
+    setFlag("Z", val === 0);
+    setFlag("C", doesNeedCarry);
+  },
+  [MNEMONIC.BIT]: (operand) => {
+    let val = readRam8(operand);
+    let isZero = (val & registers.a) === 0;
+    setFlag("N", val & 128);
+    setFlag("V", val & 64);
+    setFlag("Z", isZero);
+  },
+  [MNEMONIC.EOR]: (operand) => {
+    let val = readRam8(operand);
+    registers.a ^= val;
+    setFlag("N", registers.a & 0x80);
+    setFlag("Z", registers.a === 0);
+  },
+  [MNEMONIC.ORA]: (operand) => {
+    let val = readRam8(operand);
+    registers.a |= val;
+    setFlag("N", registers.a & 0x80);
+    setFlag("Z", registers.a === 0);
+  },
+  [MNEMONIC.CLC]: () => {
+    setFlag("C", false);
+  },
+  [MNEMONIC.SEC]: () => {
+    setFlag("C", true);
+  },
+  [MNEMONIC.CLI]: () => {
+    setFlag("I", false);
+  },
+  [MNEMONIC.SEI]: () => {
+    setFlag("I", true);
+  },
+  [MNEMONIC.CLV]: () => {
+    setFlag("V", false);
+  },
   [MNEMONIC.BPL]: (operand) => {
     registers.p & 128 ? registers.pc + 2 : (registers.pc += operand);
   },
@@ -481,19 +553,21 @@ const instruction = {
     registers.pc = operand;
   },
   [MNEMONIC.DEC]: (operand) => {
-    let val = readRam8(operand);
-    writeRam8(--val);
+    let val = (readRam8(operand) - 1) & 0xff;
+    writeRam8(operand, val);
+    setFlag("N", val & 0x80);
+    setFlag("Z", val === 0);
   },
   [MNEMONIC.STA]: (operand) => {
     writeRam8(operand, registers.a);
   },
   [MNEMONIC.DEX]: () => {
-    registers.x--;
+    registers.x = (registers.x - 1) & 0xff;
     setFlag("N", registers.x & 0x80);
     setFlag("Z", registers.x === 0);
   },
   [MNEMONIC.DEY]: () => {
-    registers.y--;
+    registers.y = (registers.y - 1) & 0xff;
     setFlag("N", registers.y & 0x80);
     setFlag("Z", registers.y === 0);
   },
@@ -517,15 +591,43 @@ const instruction = {
     setFlag("N", registers.y === 0);
     setFlag("Z", registers.y & 0x80);
   },
+  [MNEMONIC.INC]: (operand) => {
+    let val = (readRam8(operand) + 1) & 0xff;
+    writeRam8(operand, val);
+    setFlag("N", val & 0x80);
+    setFlag("Z", val === 0);
+  },
   [MNEMONIC.INX]: () => {
-    registers.x++;
+    registers.x = (registers.x + 1) & 0xff;
     setFlag("N", registers.x === 0);
     setFlag("Z", registers.x & 0x80);
   },
   [MNEMONIC.INY]: () => {
-    registers.y++;
+    registers.y = (registers.y + 1) & 0xff;
     setFlag("N", registers.y === 0);
     setFlag("Z", registers.y & 0x80);
+  },
+  // TODO: implement proper writeStack16
+  [MNEMONIC.JSR]: (operand) => {
+    let retAddr = prevInst + 2;
+    writeRam8(0x100 | registers.sp, retAddr >> 8);
+    registers.sp = (registers.sp - 1) & 0xff;
+    writeRam8(0x100 | registers.sp, retAddr & 0xff);
+    registers.sp = (registers.sp - 1) & 0xff;
+    registers.pc = operand;
+  },
+  [MNEMONIC.RTS]: () => {
+    let pcFromStack = readRam16((0x100 | registers.sp) + 1);
+    registers.sp += 2;
+    registers.pc = pcFromStack + 1;
+  },
+  [MNEMONIC.RTI]: () => {
+    let status = readRam16(0x100 | registers.sp);
+    registers.p = status;
+    registers.sp++;
+    let pc = readRam16(0x100 | registers.sp);
+    registers.pc = pc;
+    registers.sp++;
   },
   // Stack memory range is 0x0100 - 0x01FF
   [MNEMONIC.PHA]: () => {
@@ -556,7 +658,9 @@ const instruction = {
   [MNEMONIC.TSX]: () => {
     registers.x = registers.x;
   },
+  [MNEMONIC.NOP]: () => {},
   [MNEMONIC.BRK]: () => {
+    // TODO: Interrupt request
     setFlag("B", true);
   },
 };
@@ -598,7 +702,13 @@ function setFlag(flag, value) {
 // because apparently some NES games use them
 const OPCODES = {
   //Decimal OpCode: mnemonic, addressing mode, instruction length, cycles
-  0: [MNEMONIC.BRK, MODES.IMPLIED, 1, 7],
+
+  // Regardless of what ANY 6502 documentation says, BRK is a 2 byte opcode. The
+  // first is #$00, and the second is a padding byte. This explains why interrupt
+  // routines called by BRK always return 2 bytes after the actual BRK opcode,
+  // and not just 1.
+  // source: http://nesdev.com/the%20%27B%27%20flag%20&%20BRK%20instruction.txt
+  0: [MNEMONIC.BRK, MODES.IMPLIED, 2, 7],
   1: [MNEMONIC.ORA, MODES.INDIRECT_X, 2, 6],
   //2: [],
   //3: [],
