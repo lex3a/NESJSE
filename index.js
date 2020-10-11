@@ -188,7 +188,7 @@ function loadBin(progBytes) {
 
 async function loadRom() {
   let address = 0x4020;
-  let response = await fetch("/Super Mario Bros. (JU) [!].nes");
+  let response = await fetch("./AllSuiteA.bin");
 
   let buffer = await response.arrayBuffer(); // download as arrBuffer
   let uint8 = new Uint8Array(buffer);
@@ -340,8 +340,8 @@ const mode = {
   [MODES.IMPLIED]: () => `IMP`,
   [MODES.IMMEDIATE]: () => registers.pc + 1,
   [MODES.ZERO_PAGE]: () => readRam8(registers.pc + 1),
-  [MODES.ZERO_PAGE_X]: () => (readRam8(registers.pc) + registers.x) & 0xff,
-  [MODES.ZERO_PAGE_Y]: () => (readRam8(registers.pc) + registers.y) & 0xff,
+  [MODES.ZERO_PAGE_X]: () => (readRam8(registers.pc + 1) + registers.x) & 0xff,
+  [MODES.ZERO_PAGE_Y]: () => (readRam8(registers.pc + 1) + registers.y) & 0xff,
   [MODES.ABSOLUTE]: () => readRam16(registers.pc + 1),
   [MODES.ABSOLUTE_X]: () => readRam16(registers.pc + 1) + registers.x,
   [MODES.ABSOLUTE_Y]: () => readRam16(registers.pc + 1) + registers.y,
